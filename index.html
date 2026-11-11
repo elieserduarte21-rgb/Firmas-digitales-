@@ -1,0 +1,1290 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Creador de Firmas Digitales v3.2</title>
+<style>
+:root{
+  --bg:#f5f7fa; --panel:#fff; --text:#1f2933; --muted:#6b7280;
+  --accent:#2563eb; --accent-2:#1d4ed8; --border:#e5e7eb; --danger:#dc2626;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  background:var(--bg); color:var(--text);
+}
+header{ text-align:center; padding:24px 16px 8px; }
+header h1{ margin:0 0 4px; font-size:1.6rem; }
+header h1 small{ font-size:.7rem; color:var(--muted); font-weight:400; }
+header p{ margin:0; color:var(--muted); font-size:.95rem; }
+main{
+  display:grid; grid-template-columns:400px 1fr; gap:20px;
+  padding:20px; max-width:1600px; margin:0 auto;
+}
+@media (max-width:1020px){ main{ grid-template-columns:1fr; } }
+.panel{
+  background:var(--panel); border:1px solid var(--border); border-radius:14px;
+  padding:18px; box-shadow:0 1px 3px rgba(0,0,0,.04);
+  max-height:calc(100vh - 40px); overflow-y:auto;
+}
+.panel h2{ font-size:.8rem; text-transform:uppercase; letter-spacing:.08em;
+  color:var(--muted); margin:0 0 10px; }
+.panel h2:not(:first-child){ margin-top:22px; padding-top:14px; border-top:1px solid var(--border); }
+button{
+  font:inherit; cursor:pointer; border-radius:10px; border:1px solid var(--border);
+  background:#fff; padding:10px 12px; color:var(--text);
+  transition:all .15s ease; font-size:.9rem;
+}
+button:hover{ border-color:#c7ccd4; }
+button:disabled{ opacity:.45; cursor:not-allowed; }
+button.primary{ background:var(--accent); color:#fff; border-color:var(--accent); }
+button.primary:hover:not(:disabled){ background:var(--accent-2); }
+button.active{ background:#dbeafe; border-color:var(--accent); color:var(--accent-2); font-weight:600; }
+.btn-row{ display:flex; gap:8px; flex-wrap:wrap; }
+.btn-row button{ flex:1; min-width:0; }
+.upload-zone{
+  border:2px dashed var(--border); border-radius:12px; padding:16px;
+  text-align:center; transition:all .15s;
+}
+.upload-zone.drag{ border-color:var(--accent); background:#eff6ff; }
+.field{ margin-bottom:12px; }
+.field label{ display:flex; justify-content:space-between; font-size:.85rem;
+  margin-bottom:6px; color:var(--muted); }
+.field label b{ color:var(--text); font-weight:600; }
+input[type=range]{ width:100%; accent-color:var(--accent); }
+input[type=color]{ width:100%; height:38px; border:1px solid var(--border);
+  border-radius:8px; padding:2px; background:#fff; }
+select{ width:100%; padding:9px; border-radius:8px; border:1px solid var(--border); font:inherit; background:#fff; }
+.checkbox{ display:flex; align-items:center; gap:8px; font-size:.9rem; margin:8px 0; cursor:pointer; user-select:none; }
+.checkbox input{ width:16px; height:16px; accent-color:var(--accent); }
+.preview{
+  background:var(--panel); border:1px solid var(--border); border-radius:14px;
+  padding:18px; display:flex; flex-direction:column;
+  max-height:calc(100vh - 40px); min-height:400px;
+}
+.preview-grid{
+  display:grid; grid-template-columns:1fr 1fr; gap:12px; flex:1;
+  min-height:0;
+}
+@media (max-width:760px){ .preview-grid{ grid-template-columns:1fr; } }
+.preview-box{
+  display:flex; flex-direction:column; min-height:0;
+  border:1px solid var(--border); border-radius:10px; overflow:hidden;
+}
+.preview-label{
+  background:#f8fafc; padding:6px 12px; font-size:.75rem;
+  text-transform:uppercase; letter-spacing:.06em;
+  color:var(--muted); font-weight:600;
+  border-bottom:1px solid var(--border);
+}
+.canvas-wrap{
+  flex:1; display:flex; align-items:center; justify-content:center;
+  padding:14px; position:relative; overflow:hidden; min-height:280px;
+}
+.canvas-wrap.checkerboard{
+  background-color:#fff;
+  background-image:
+    linear-gradient(45deg,#e6e8eb 25%,transparent 25%),
+    linear-gradient(-45deg,#e6e8eb 25%,transparent 25%),
+    linear-gradient(45deg,transparent 75%,#e6e8eb 75%),
+    linear-gradient(-45deg,transparent 75%,#e6e8eb 75%);
+  background-size:22px 22px;
+  background-position:0 0,0 11px,11px -11px,-11px 0;
+}
+.canvas-wrap.plain{ background:#f8fafc; }
+#output, #originalCanvas{
+  max-width:100%; max-height:55vh; display:none;
+}
+#output.brushActive{ cursor:none; user-select:none; touch-action:none; }
+.empty-msg{ color:var(--muted); text-align:center; font-size:.9rem; line-height:1.4; }
+.diagnostic{
+  margin-top:12px; padding:10px 14px; border-radius:8px;
+  font-size:.85rem; line-height:1.4; display:none;
+  border:1px solid var(--border); background:#f8fafc;
+}
+.diagnostic.ok    { background:#dcfce7; border-color:#86efac; color:#14532d; }
+.diagnostic.warn  { background:#fef3c7; border-color:#fcd34d; color:#78350f; }
+.diagnostic.error { background:#fee2e2; border-color:#fca5a5; color:#7f1d1d; }
+.diagnostic.info  { background:#eff6ff; border-color:#bfdbfe; color:#1e40af; }
+.modal{
+  position:fixed; inset:0; background:rgba(0,0,0,.7); display:none;
+  align-items:center; justify-content:center; padding:20px; z-index:50;
+}
+.modal.open{ display:flex; }
+.modal-content{ background:#fff; border-radius:14px; padding:16px; max-width:640px; width:100%; max-height:90vh; overflow:auto; }
+#video{ width:100%; border-radius:10px; background:#000; display:block; }
+.modal-actions{ display:flex; gap:10px; margin-top:12px; flex-wrap:wrap; }
+.modal-actions button{ flex:1; min-width:120px; }
+.camera-error{
+  background:#fee2e2; border:1px solid #fca5a5; color:#7f1d1d;
+  padding:12px 14px; border-radius:8px; margin-bottom:12px;
+  font-size:.88rem; line-height:1.5;
+}
+.camera-hint{
+  margin-top:12px; padding:10px 14px;
+  background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px;
+  font-size:.82rem; color:#1e40af; line-height:1.5;
+}
+.toast{
+  position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(80px);
+  background:#111827; color:#fff; padding:12px 20px; border-radius:10px;
+  font-size:.9rem; opacity:0; transition:all .25s ease; z-index:100;
+  pointer-events:none; max-width:90vw; text-align:center;
+}
+.toast.show{ transform:translateX(-50%) translateY(0); opacity:1; }
+.toast.error{ background:#991b1b; }
+.hint{ font-size:.78rem; color:var(--muted); margin-top:6px; line-height:1.4; }
+kbd{ background:#eef2f7; border:1px solid #d7dde6; border-radius:4px;
+  padding:1px 5px; font-size:.75rem; font-family:ui-monospace,monospace; }
+.presets{ display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:14px; }
+.presets button{
+  padding:9px 8px; font-size:.82rem; border-radius:8px;
+  background:#f8fafc; text-align:center; display:flex;
+  align-items:center; justify-content:center; gap:4px;
+}
+.presets button:hover{ background:#eef2f7; border-color:#c7ccd4; }
+.auto-btn{
+  width:100%; margin-bottom:14px; padding:12px;
+  background:linear-gradient(135deg,#2563eb,#7c3aed);
+  color:#fff; border:none; font-weight:600; font-size:.92rem;
+  box-shadow:0 2px 6px rgba(37,99,235,.25);
+}
+.auto-btn:hover{ filter:brightness(1.08); box-shadow:0 3px 10px rgba(37,99,235,.35); }
+.debug{ font-size:.72rem; color:var(--muted); margin-top:4px; font-family:ui-monospace,monospace; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>✍️ Creador de Firmas Digitales <small>v3.2</small></h1>
+  <p>Auto-ajuste · Morfología · Quitar sombras · Vista antes/después</p>
+</header>
+
+<main>
+  <!-- PANEL -->
+  <section class="panel">
+    <h2>1. Imagen</h2>
+    <div class="upload-zone" id="dropzone">
+      <div class="btn-row">
+        <button id="btnUpload" class="primary">📁 Subir</button>
+        <button id="btnCamera">📷 Cámara</button>
+      </div>
+      <input type="file" id="fileInput" accept="image/*" hidden>
+      <input type="file" id="cameraInput" accept="image/*" capture="environment" hidden>
+      <div class="hint">O arrastra y suelta una imagen aquí.</div>
+    </div>
+
+    <h2>2. Ajustes automáticos</h2>
+    <button id="btnAutoTune" class="auto-btn">✨ Auto-ajustar</button>
+
+    <div class="field">
+      <label>Preajustes rápidos</label>
+      <div class="presets">
+        <button data-preset="blackFine">🖊️ Negro fino</button>
+        <button data-preset="blackBold">🖋️ Plumilla</button>
+        <button data-preset="bluePen">🖊️ Azul</button>
+        <button data-preset="softInk">✒️ Suave</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Tipo de imagen</label>
+      <select id="mode">
+        <option value="scan">Escaneo (fondo blanco uniforme)</option>
+        <option value="photo">Foto (luz irregular / sombras)</option>
+      </select>
+    </div>
+
+    <div class="field" id="fieldThreshold">
+      <label>Umbral de tinta <b><span id="vThreshold">190</span></b></label>
+      <input type="range" id="threshold" min="40" max="250" value="190">
+    </div>
+    <div class="field" id="fieldSensitivity" style="display:none">
+      <label>Sensibilidad <b><span id="vSensitivity">12</span></b></label>
+      <input type="range" id="sensitivity" min="0" max="50" value="12">
+    </div>
+
+    <div class="field">
+      <label>Suavizado de bordes <b><span id="vSoftness">25</span></b></label>
+      <input type="range" id="softness" min="0" max="80" value="25">
+    </div>
+
+    <div class="field">
+      <label>Grosor del trazo <b><span id="vMorphology">Normal</span></b></label>
+      <input type="range" id="morphology" min="-2" max="2" step="1" value="0">
+    </div>
+
+    <label class="checkbox">
+      <input type="checkbox" id="normalize">
+      Quitar sombras / unificar iluminación
+    </label>
+
+    <div class="field" style="margin-top:10px">
+      <label>Color de tinta</label>
+      <input type="color" id="inkColor" value="#111111">
+    </div>
+    <label class="checkbox"><input type="checkbox" id="invert"> Invertir (tinta clara / fondo oscuro)</label>
+    <label class="checkbox"><input type="checkbox" id="autoCrop" checked> Recortar márgenes automáticamente</label>
+
+    <h2>3. Pincel manual</h2>
+    <label class="checkbox">
+      <input type="checkbox" id="brushMode">
+      Activar pincel sobre la firma
+    </label>
+    <div class="btn-row" style="margin-top:8px">
+      <button id="btnErase" class="active">🧹 Borrar</button>
+      <button id="btnRestore">↩️ Restaurar</button>
+    </div>
+    <div class="field" style="margin-top:14px">
+      <label>Tamaño del pincel <b><span id="vBrushSize">20</span> px</b></label>
+      <input type="range" id="brushSize" min="2" max="120" value="20">
+      <div class="hint"><kbd>[</kbd> achicar · <kbd>]</kbd> agrandar</div>
+    </div>
+    <div class="btn-row">
+      <button id="btnUndo" disabled>↶ Deshacer</button>
+      <button id="btnResetBrush">🔄 Reiniciar pincel</button>
+    </div>
+
+    <h2>4. Guardar</h2>
+    <div class="btn-row">
+      <button id="btnSavePicker" class="primary">💾 Guardar en carpeta…</button>
+    </div>
+    <div class="btn-row" style="margin-top:8px">
+      <button id="btnDownload">⬇️ Descargar PNG</button>
+      <button id="btnReset">🔄 Reiniciar todo</button>
+    </div>
+  </section>
+
+  <!-- PREVIEW -->
+  <section class="preview">
+    <div class="preview-grid">
+      <div class="preview-box">
+        <div class="preview-label">Original</div>
+        <div class="canvas-wrap plain">
+          <div class="empty-msg" id="emptyMsgOrig">Sube o toma una foto</div>
+          <canvas id="originalCanvas"></canvas>
+        </div>
+      </div>
+      <div class="preview-box">
+        <div class="preview-label">Resultado (fondo transparente)</div>
+        <div class="canvas-wrap checkerboard">
+          <div class="empty-msg" id="emptyMsg">Esperando imagen</div>
+          <canvas id="output"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="diagnostic" id="diagnostic"></div>
+  </section>
+</main>
+
+<!-- Modal cámara -->
+<div class="modal" id="cameraModal">
+  <div class="modal-content">
+    <div id="cameraError" class="camera-error" style="display:none"></div>
+    <video id="video" autoplay playsinline muted></video>
+    <div id="cameraHint" class="camera-hint" style="display:none"></div>
+    <div class="modal-actions">
+      <button id="btnSwitchCam" style="display:none">🔄 Cambiar cámara</button>
+      <button id="btnFallbackCamera" style="display:none">📷 Usar cámara del sistema</button>
+      <button id="btnCapture" class="primary">📸 Capturar</button>
+      <button id="btnCloseCamera">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   ESTADO
+   ============================================================ */
+const srcCanvas = document.createElement('canvas');
+let srcCtx = srcCanvas.getContext('2d', { willReadFrequently: true });
+let hasImage = false;
+
+const snapshot = document.createElement('canvas');
+let mask = null;                    // se inicializa en loadFile / render
+let maskInitialized = false;
+let history = [];
+let brushErase = true;
+
+const output = document.getElementById('output');
+const originalCanvas = document.getElementById('originalCanvas');
+const outCtx = output.getContext('2d', { willReadFrequently: true });
+const emptyMsg = document.getElementById('emptyMsg');
+const emptyMsgOrig = document.getElementById('emptyMsgOrig');
+const fileInput = document.getElementById('fileInput');
+const cameraInput = document.getElementById('cameraInput');
+const dropzone = document.getElementById('dropzone');
+const toastEl = document.getElementById('toast');
+const diagnosticEl = document.getElementById('diagnostic');
+
+/* Controles */
+const elMode        = document.getElementById('mode');
+const elThreshold   = document.getElementById('threshold');
+const elSensitivity = document.getElementById('sensitivity');
+const elSoftness    = document.getElementById('softness');
+const elMorphology  = document.getElementById('morphology');
+const elNormalize   = document.getElementById('normalize');
+const elColor       = document.getElementById('inkColor');
+const elInvert      = document.getElementById('invert');
+const elCrop        = document.getElementById('autoCrop');
+const elBrushMode   = document.getElementById('brushMode');
+const elBrushSize   = document.getElementById('brushSize');
+const btnErase      = document.getElementById('btnErase');
+const btnRestore    = document.getElementById('btnRestore');
+const btnUndo       = document.getElementById('btnUndo');
+const vThreshold    = document.getElementById('vThreshold');
+const vSensitivity  = document.getElementById('vSensitivity');
+const vSoftness     = document.getElementById('vSoftness');
+const vMorphology   = document.getElementById('vMorphology');
+const vBrushSize    = document.getElementById('vBrushSize');
+
+/* Cursor del pincel */
+const cursorEl = document.createElement('div');
+cursorEl.style.cssText = `
+  position:fixed; border:2px solid #2563eb; border-radius:50%;
+  pointer-events:none; transform:translate(-50%,-50%); display:none;
+  z-index:100; box-shadow:0 0 0 1px #fff, inset 0 0 0 1px #fff;
+`;
+document.body.appendChild(cursorEl);
+
+/* ============================================================
+   UTILIDADES
+   ============================================================ */
+function hexToRgb(hex){
+  const m = hex.replace('#','');
+  return [parseInt(m.slice(0,2),16), parseInt(m.slice(2,4),16), parseInt(m.slice(4,6),16)];
+}
+function toast(msg, isError){
+  toastEl.textContent = msg;
+  toastEl.classList.toggle('error', !!isError);
+  toastEl.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(()=>toastEl.classList.remove('show'), isError ? 5000 : 2800);
+}
+function timestamp(){
+  const d = new Date(); const p = n => String(n).padStart(2,'0');
+  return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+}
+function setDiagnostic(msg, kind){
+  diagnosticEl.innerHTML = msg;
+  diagnosticEl.className = 'diagnostic ' + (kind || 'info');
+  diagnosticEl.style.display = 'block';
+}
+
+/* Crea un canvas opaco blanco del tamaño indicado.
+   Se usa para inicializar la máscara del pincel: al ser opaca,
+   compose() con destination-in no borra el resultado. */
+function createWhiteCanvas(w, h){
+  const c = document.createElement('canvas');
+  c.width = w;
+  c.height = h;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, w, h);
+  return c;
+}
+
+/* ============================================================
+   CARGA DE IMAGEN
+   ============================================================ */
+function loadFile(file){
+  if(!file){ toast('No hay archivo'); return; }
+  if(!file.type.startsWith('image/')){ toast('El archivo no es una imagen', true); return; }
+
+  setDiagnostic('Procesando imagen…', 'info');
+
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = () => {
+    try {
+      let w = img.naturalWidth, h = img.naturalHeight;
+      if(!w || !h){ toast('La imagen está vacía o dañada', true); return; }
+      const MAX = 2400;
+      if(Math.max(w,h) > MAX){
+        const s = MAX / Math.max(w,h);
+        w = Math.round(w*s); h = Math.round(h*s);
+      }
+      srcCanvas.width = w;
+      srcCanvas.height = h;
+      srcCtx = srcCanvas.getContext('2d', { willReadFrequently:true });
+      srcCtx.drawImage(img, 0, 0, w, h);
+      hasImage = true;
+
+      // *** FIX PRINCIPAL ***
+      // Inicializar la máscara como canvas BLANCO OPACO del tamaño de la imagen.
+      // Antes era un canvas vacío (300x150 por defecto), y al redimensionar
+      // se "borraba" todo el resultado con destination-in.
+      mask = createWhiteCanvas(w, h);
+      maskInitialized = true;
+      history = [];
+      updateUndoBtn();
+
+      drawOriginal();
+      setTimeout(() => { render(); }, 30);
+    } catch (e) {
+      console.error(e);
+      toast('Error al cargar la imagen: ' + e.message, true);
+      setDiagnostic('⚠️ Error al procesar la imagen. ' + e.message, 'error');
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  };
+  img.onerror = () => {
+    toast('No se pudo leer la imagen (formato no soportado)', true);
+    setDiagnostic('⚠️ No se pudo leer el archivo. Prueba con JPG o PNG.', 'error');
+    URL.revokeObjectURL(url);
+  };
+  img.src = url;
+}
+
+function drawOriginal(){
+  if(!hasImage) return;
+  originalCanvas.width  = srcCanvas.width;
+  originalCanvas.height = srcCanvas.height;
+  const ctx = originalCanvas.getContext('2d');
+  ctx.clearRect(0, 0, originalCanvas.width, originalCanvas.height);
+  ctx.drawImage(srcCanvas, 0, 0);
+  originalCanvas.style.display = 'block';
+  emptyMsgOrig.style.display = 'none';
+}
+
+/* ============================================================
+   HELPERS DE PROCESAMIENTO
+   ============================================================ */
+function localMean(lums, w, h, radius){
+  const integral = new Float64Array((w+1)*(h+1));
+  for(let y=0;y<h;y++){
+    let rowSum = 0;
+    const base = (y+1)*(w+1);
+    const prev = y*(w+1);
+    for(let x=0;x<w;x++){
+      rowSum += lums[y*w+x];
+      integral[base+x+1] = integral[prev+x+1] + rowSum;
+    }
+  }
+  const mean = new Float32Array(w*h);
+  for(let y=0;y<h;y++){
+    const y1 = Math.max(0, y-radius), y2 = Math.min(h-1, y+radius);
+    const topBase = y1*(w+1);
+    const botBase = (y2+1)*(w+1);
+    const rows = (y2 - y1 + 1);
+    for(let x=0;x<w;x++){
+      const x1 = Math.max(0, x-radius), x2 = Math.min(w-1, x+radius);
+      const cols = (x2 - x1 + 1);
+      const sum =
+        integral[botBase + x2+1] - integral[botBase + x1] -
+        integral[topBase + x2+1] + integral[topBase + x1];
+      mean[y*w+x] = sum / (rows*cols);
+    }
+  }
+  return mean;
+}
+
+function normalizeInPlace(lums, w, h){
+  const radius = Math.max(20, Math.round(Math.min(w,h)/15));
+  const bg = localMean(lums, w, h, radius);
+  for(let i = 0; i < w*h; i++){
+    const b = Math.max(1, bg[i]);
+    let v = lums[i] / b * 255;
+    if(v > 255) v = 255;
+    lums[i] = v;
+  }
+}
+
+function otsu(values){
+  const hist = new Array(256).fill(0);
+  const n = values.length;
+  for(let i = 0; i < n; i++){
+    let v = values[i];
+    if(v < 0) v = 0; else if(v > 255) v = 255;
+    hist[Math.round(v)]++;
+  }
+  let sum = 0;
+  for(let i = 0; i < 256; i++) sum += i * hist[i];
+  let sumB = 0, wB = 0, maxVar = -1, best = 0;
+  for(let t = 0; t < 256; t++){
+    wB += hist[t];
+    if(wB === 0) continue;
+    const wF = n - wB;
+    if(wF === 0) break;
+    sumB += t * hist[t];
+    const mB = sumB / wB;
+    const mF = (sum - sumB) / wF;
+    const between = wB * wF * (mB - mF) * (mB - mF);
+    if(between > maxVar){ maxVar = between; best = t; }
+  }
+  return best;
+}
+
+function estimateSoftness(values, threshold){
+  let near = 0;
+  const n = values.length;
+  const band = 35;
+  for(let i = 0; i < n; i++){
+    if(Math.abs(values[i] - threshold) < band) near++;
+  }
+  const frac = near / n;
+  return Math.round(Math.max(12, Math.min(60, 12 + frac * 320)));
+}
+
+function morphAlpha(alphas, w, h, kernel){
+  if(kernel === 0) return alphas;
+  const r = Math.abs(kernel);
+  const isDilate = kernel > 0;
+  const tmp = new Uint8Array(w*h);
+  for(let y = 0; y < h; y++){
+    const row = y*w;
+    for(let x = 0; x < w; x++){
+      let best = isDilate ? 0 : 255;
+      const x0 = Math.max(0, x-r), x1 = Math.min(w-1, x+r);
+      for(let xx = x0; xx <= x1; xx++){
+        const v = alphas[row + xx];
+        if(isDilate){ if(v > best) best = v; }
+        else{ if(v < best) best = v; }
+      }
+      tmp[row + x] = best;
+    }
+  }
+  const out = new Uint8Array(w*h);
+  for(let y = 0; y < h; y++){
+    const y0 = Math.max(0, y-r), y1 = Math.min(h-1, y+r);
+    for(let x = 0; x < w; x++){
+      let best = isDilate ? 0 : 255;
+      for(let yy = y0; yy <= y1; yy++){
+        const v = tmp[yy*w + x];
+        if(isDilate){ if(v > best) best = v; }
+        else{ if(v < best) best = v; }
+      }
+      out[y*w + x] = best;
+    }
+  }
+  return out;
+}
+
+function cropCanvasInPlace(canvas){
+  const ctx = canvas.getContext('2d', { willReadFrequently:true });
+  const w = canvas.width, h = canvas.height;
+  if(!w || !h) return;
+  const data = ctx.getImageData(0,0,w,h).data;
+  let minX=w, minY=h, maxX=-1, maxY=-1;
+  for(let y=0;y<h;y++){
+    const row = y*w;
+    for(let x=0;x<w;x++){
+      if(data[(row+x)*4+3] > 8){
+        if(x<minX) minX=x;
+        if(x>maxX) maxX=x;
+        if(y<minY) minY=y;
+        if(y>maxY) maxY=y;
+      }
+    }
+  }
+  if(maxX < 0) return;
+  const pad = Math.max(2, Math.round(Math.min(w,h)*0.01));
+  minX = Math.max(0, minX-pad); minY = Math.max(0, minY-pad);
+  maxX = Math.min(w-1, maxX+pad); maxY = Math.min(h-1, maxY+pad);
+  const cw = maxX-minX+1, ch = maxY-minY+1;
+  if(cw === w && ch === h) return;
+
+  const tmp = document.createElement('canvas');
+  tmp.width = cw; tmp.height = ch;
+  tmp.getContext('2d').drawImage(canvas, minX, minY, cw, ch, 0, 0, cw, ch);
+  canvas.width = cw;
+  canvas.height = ch;
+  canvas.getContext('2d').drawImage(tmp, 0, 0);
+}
+
+/* ============================================================
+   RENDER PRINCIPAL
+   ============================================================ */
+function render(){
+  if(!hasImage) return;
+  try {
+    const w = srcCanvas.width, h = srcCanvas.height;
+    let srcData;
+    try {
+      srcData = srcCtx.getImageData(0,0,w,h).data;
+    } catch (e) {
+      console.error(e);
+      setDiagnostic('⚠️ El navegador bloquea el procesado por seguridad. Sirve la página desde localhost (ej: <code>python -m http.server</code>) en lugar de abrir el archivo con doble clic.', 'error');
+      toast('Error de seguridad al leer la imagen', true);
+      return;
+    }
+
+    /* 1. Luminancia */
+    const inv = elInvert.checked;
+    const lums = new Float32Array(w*h);
+    for(let i=0, p=0; i<srcData.length; i+=4, p++){
+      let lum = 0.299*srcData[i] + 0.587*srcData[i+1] + 0.114*srcData[i+2];
+      if(inv) lum = 255 - lum;
+      lums[p] = lum;
+    }
+
+    /* 2. Normalizar iluminación */
+    if(elNormalize.checked){
+      normalizeInPlace(lums, w, h);
+    }
+
+    /* 3. Mapa de umbrales locales */
+    const mode = elMode.value;
+    let threshMap = null;
+    if(mode === 'photo'){
+      const radius = Math.max(10, Math.round(Math.min(w,h)/25));
+      threshMap = localMean(lums, w, h, radius);
+    }
+
+    const thr  = +elThreshold.value;
+    const sens = +elSensitivity.value;
+    const soft = +elSoftness.value;
+
+    /* 4. Alfa por píxel */
+    const alphas = new Uint8Array(w*h);
+    for(let p = 0; p < w*h; p++){
+      const lum = lums[p];
+      const t = (mode === 'photo') ? (threshMap[p] - sens) : thr;
+      let a;
+      if(soft > 0){
+        const hi = t + soft;
+        const lo = t - soft;
+        if(lum >= hi) a = 0;
+        else if(lum <= lo) a = 255;
+        else a = Math.round(255 * (hi - lum) / (hi - lo));
+      } else {
+        a = lum < t ? 255 : 0;
+      }
+      alphas[p] = a;
+    }
+
+    /* 5. Morfología */
+    const morphK = +elMorphology.value;
+    const finalAlphas = morphK !== 0 ? morphAlpha(alphas, w, h, morphK) : alphas;
+
+    /* Contar tinta para diagnóstico */
+    let inkPixels = 0;
+    for(let p = 0; p < w*h; p++){
+      if(finalAlphas[p] > 8) inkPixels++;
+    }
+    const inkPct = (inkPixels / (w*h)) * 100;
+
+    /* 6. Colorear y escribir snapshot */
+    snapshot.width = w;
+    snapshot.height = h;
+    const snapCtx = snapshot.getContext('2d', { willReadFrequently:true });
+    const img = snapCtx.createImageData(w,h);
+    const d = img.data;
+    const [cr,cg,cb] = hexToRgb(elColor.value);
+    for(let p = 0; p < w*h; p++){
+      const i = p*4;
+      d[i]   = cr;
+      d[i+1] = cg;
+      d[i+2] = cb;
+      d[i+3] = finalAlphas[p];
+    }
+    snapCtx.putImageData(img, 0, 0);
+
+    if(elCrop.checked) cropCanvasInPlace(snapshot);
+
+    /* 7. Ajustar máscara al tamaño del snapshot */
+    if(!mask || !maskInitialized){
+      // Seguridad extra: si por lo que sea no está inicializada, la creamos blanca
+      mask = createWhiteCanvas(snapshot.width, snapshot.height);
+      maskInitialized = true;
+    } else if(mask.width !== snapshot.width || mask.height !== snapshot.height){
+      // Redimensionar la máscara existente preservando lo pintado
+      const tmp = document.createElement('canvas');
+      tmp.width = snapshot.width;
+      tmp.height = snapshot.height;
+      const tctx = tmp.getContext('2d');
+      tctx.fillStyle = '#fff';
+      tctx.fillRect(0, 0, tmp.width, tmp.height);
+      tctx.drawImage(mask, 0, 0, tmp.width, tmp.height);
+      mask = tmp;
+      history = [];
+      updateUndoBtn();
+    }
+
+    compose();
+    updateDiagnostic(inkPct, inkPixels, w*h, w, h);
+  } catch (e) {
+    console.error(e);
+    setDiagnostic('⚠️ Error al procesar: ' + e.message, 'error');
+    toast('Error al procesar la imagen: ' + e.message, true);
+  }
+}
+
+function updateDiagnostic(inkPct, inkPixels, totalPixels, w, h){
+  if(!hasImage){ diagnosticEl.style.display = 'none'; return; }
+  const info = `<span class="debug">${w}×${h}px · ${inkPixels.toLocaleString()} píxeles de tinta de ${totalPixels.toLocaleString()}</span>`;
+
+  if(inkPct < 0.05){
+    setDiagnostic(
+      `⚠️ El resultado está <b>prácticamente VACÍO</b> (0.0% tinta). ` +
+      (elMode.value === 'photo'
+        ? 'Baja la sensibilidad o activa "Quitar sombras".'
+        : 'Sube el "Umbral de tinta" hasta que aparezca la firma.') +
+      `<br>${info}`,
+      'error'
+    );
+  } else if(inkPct > 80){
+    setDiagnostic(
+      `⚠️ El resultado está <b>casi todo negro</b> (${inkPct.toFixed(0)}% tinta). ` +
+      (elMode.value === 'photo'
+        ? 'Sube la sensibilidad.'
+        : 'Baja el "Umbral de tinta".') +
+      `<br>${info}`,
+      'warn'
+    );
+  } else {
+    setDiagnostic(
+      `✓ Tinta detectada: <b>${inkPct.toFixed(2)}%</b>. Compara el original con el resultado y ajusta hasta que se vea limpia.` +
+      `<br>${info}`,
+      'ok'
+    );
+  }
+}
+
+function compose(){
+  if(!snapshot.width || !snapshot.height) return;
+  if(!mask || !maskInitialized){
+    // Nunca debería pasar, pero por seguridad
+    mask = createWhiteCanvas(snapshot.width, snapshot.height);
+    maskInitialized = true;
+  }
+  output.width  = snapshot.width;
+  output.height = snapshot.height;
+  outCtx.clearRect(0, 0, output.width, output.height);
+  outCtx.drawImage(snapshot, 0, 0);
+  outCtx.globalCompositeOperation = 'destination-in';
+  outCtx.drawImage(mask, 0, 0, output.width, output.height);
+  outCtx.globalCompositeOperation = 'source-over';
+
+  output.style.display = 'block';
+  emptyMsg.style.display = 'none';
+}
+
+let renderPending = false;
+function scheduleRender(){
+  if(renderPending) return;
+  renderPending = true;
+  requestAnimationFrame(() => { renderPending = false; render(); });
+}
+
+/* ============================================================
+   AUTO-AJUSTE (Otsu)
+   ============================================================ */
+function autoTune(){
+  if(!hasImage){ toast('Primero carga una firma'); return; }
+  const w = srcCanvas.width, h = srcCanvas.height;
+  const srcData = srcCtx.getImageData(0,0,w,h).data;
+  const inv = elInvert.checked;
+  const lums = new Float32Array(w*h);
+  for(let i=0, p=0; i<srcData.length; i+=4, p++){
+    let lum = 0.299*srcData[i] + 0.587*srcData[i+1] + 0.114*srcData[i+2];
+    if(inv) lum = 255 - lum;
+    lums[p] = lum;
+  }
+  if(elNormalize.checked) normalizeInPlace(lums, w, h);
+
+  const mode = elMode.value;
+  if(mode === 'photo'){
+    const radius = Math.max(10, Math.round(Math.min(w,h)/25));
+    const bg = localMean(lums, w, h, radius);
+    const diffs = new Float32Array(w*h);
+    for(let i = 0; i < w*h; i++){
+      let dv = bg[i] - lums[i];
+      if(dv < 0) dv = 0; else if(dv > 255) dv = 255;
+      diffs[i] = dv;
+    }
+    const best = otsu(diffs);
+    const sensV = Math.max(3, Math.min(50, Math.round(best)));
+    elSensitivity.value = sensV;
+    vSensitivity.textContent = sensV;
+    const softV = estimateSoftness(diffs, best);
+    elSoftness.value = softV;
+    vSoftness.textContent = softV;
+  } else {
+    const best = otsu(lums);
+    const thrV = Math.max(40, Math.min(250, Math.round(best)));
+    elThreshold.value = thrV;
+    vThreshold.textContent = thrV;
+    const softV = estimateSoftness(lums, best);
+    elSoftness.value = softV;
+    vSoftness.textContent = softV;
+  }
+  scheduleRender();
+  toast('✨ Ajustes automáticos aplicados');
+}
+
+/* ============================================================
+   PREAJUSTES
+   ============================================================ */
+const PRESETS = {
+  blackFine: { color:'#111111', morphology:-1, softness:18 },
+  blackBold: { color:'#000000', morphology: 1, softness:40 },
+  bluePen:   { color:'#1e3a8a', morphology: 0, softness:30 },
+  softInk:   { color:'#374151', morphology:-1, softness:55 },
+};
+function applyPreset(name){
+  const p = PRESETS[name];
+  if(!p) return;
+  elColor.value = p.color;
+  elMorphology.value = p.morphology;
+  updateMorphLabel();
+  elSoftness.value = p.softness;
+  vSoftness.textContent = p.softness;
+  scheduleRender();
+  toast('Preajuste aplicado');
+}
+
+/* ============================================================
+   PINCEL
+   ============================================================ */
+function getCanvasCoords(e){
+  const rect = output.getBoundingClientRect();
+  const sx = output.width  / rect.width;
+  const sy = output.height / rect.height;
+  return {
+    x: (e.clientX - rect.left) * sx,
+    y: (e.clientY - rect.top)  * sy,
+  };
+}
+function pushHistory(){
+  if(!mask || !mask.width) return;
+  try{
+    const ctx = mask.getContext('2d', { willReadFrequently:true });
+    const data = ctx.getImageData(0, 0, mask.width, mask.height);
+    history.push(data);
+    if(history.length > 10) history.shift();
+    updateUndoBtn();
+  }catch(_){}
+}
+function undo(){
+  if(!history.length || !mask) return;
+  const data = history.pop();
+  const ctx = mask.getContext('2d', { willReadFrequently:true });
+  ctx.putImageData(data, 0, 0);
+  compose();
+  updateUndoBtn();
+}
+function updateUndoBtn(){
+  btnUndo.disabled = history.length === 0;
+}
+function paintMask(x, y, prevX, prevY, erase){
+  if(!mask || !mask.width) return;
+  const ctx = mask.getContext('2d');
+  const radius = +elBrushSize.value;
+  ctx.save();
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.lineWidth = radius * 2;
+  if(erase){
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.strokeStyle = 'rgba(0,0,0,1)';
+    ctx.fillStyle   = 'rgba(0,0,0,1)';
+  }else{
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.strokeStyle = '#ffffff';
+    ctx.fillStyle   = '#ffffff';
+  }
+  if(prevX !== null && prevY !== null){
+    ctx.beginPath();
+    ctx.moveTo(prevX, prevY);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+  }else{
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI*2);
+    ctx.fill();
+  }
+  ctx.restore();
+  scheduleCompose();
+}
+let composePending = false;
+function scheduleCompose(){
+  if(composePending) return;
+  composePending = true;
+  requestAnimationFrame(() => {
+    composePending = false;
+    compose();
+  });
+}
+
+let isDrawing = false, lastX = null, lastY = null;
+output.addEventListener('pointerdown', (e) => {
+  if(!elBrushMode.checked || !hasImage) return;
+  e.preventDefault();
+  isDrawing = true;
+  output.setPointerCapture(e.pointerId);
+  pushHistory();
+  const { x, y } = getCanvasCoords(e);
+  lastX = x; lastY = y;
+  paintMask(x, y, null, null, brushErase);
+});
+output.addEventListener('pointermove', (e) => {
+  updateCursor(e);
+  if(!isDrawing) return;
+  const { x, y } = getCanvasCoords(e);
+  paintMask(x, y, lastX, lastY, brushErase);
+  lastX = x; lastY = y;
+});
+output.addEventListener('pointerup', (e) => {
+  if(!isDrawing) return;
+  isDrawing = false;
+  try{ output.releasePointerCapture(e.pointerId); }catch(_){}
+  lastX = null; lastY = null;
+  compose();
+});
+output.addEventListener('pointercancel', () => { isDrawing = false; lastX = null; lastY = null; });
+output.addEventListener('pointerleave', () => { cursorEl.style.display = 'none'; });
+
+function updateCursor(e){
+  if(!elBrushMode.checked || !hasImage){
+    cursorEl.style.display = 'none';
+    return;
+  }
+  const rect = output.getBoundingClientRect();
+  const scaleX = rect.width / output.width;
+  const diameter = (+elBrushSize.value) * 2 * scaleX;
+  cursorEl.style.display = 'block';
+  cursorEl.style.width  = diameter + 'px';
+  cursorEl.style.height = diameter + 'px';
+  cursorEl.style.left   = e.clientX + 'px';
+  cursorEl.style.top    = e.clientY + 'px';
+  cursorEl.style.borderColor = brushErase ? '#2563eb' : '#16a34a';
+}
+
+/* ============================================================
+   CÁMARA
+   ============================================================ */
+let stream = null;
+let currentFacing = 'environment';
+let videoDevices = [];
+
+const cameraModal = document.getElementById('cameraModal');
+const video = document.getElementById('video');
+const cameraError = document.getElementById('cameraError');
+const cameraHint = document.getElementById('cameraHint');
+const btnSwitchCam = document.getElementById('btnSwitchCam');
+const btnCapture = document.getElementById('btnCapture');
+const btnFallbackCamera = document.getElementById('btnFallbackCamera');
+
+function showCameraError(msg){
+  cameraError.textContent = msg;
+  cameraError.style.display = 'block';
+}
+function clearCameraUI(){
+  cameraError.style.display = 'none';
+  cameraHint.style.display = 'none';
+  btnSwitchCam.style.display = 'none';
+  btnFallbackCamera.style.display = 'none';
+  btnCapture.style.display = 'block';
+  video.style.display = 'block';
+}
+
+async function startCameraStream(){
+  if(stream){
+    stream.getTracks().forEach(t => t.stop());
+    stream = null;
+  }
+  const constraints = {
+    video: {
+      facingMode: { ideal: currentFacing },
+      width: { ideal: 1920 },
+      height: { ideal: 1080 }
+    },
+    audio: false
+  };
+  stream = await navigator.mediaDevices.getUserMedia(constraints);
+  video.srcObject = stream;
+  await video.play().catch(()=>{});
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    videoDevices = devices.filter(d => d.kind === 'videoinput');
+  } catch(_) { videoDevices = []; }
+}
+
+async function openCamera(){
+  clearCameraUI();
+
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    cameraModal.classList.add('open');
+    video.style.display = 'none';
+    btnCapture.style.display = 'none';
+    btnFallbackCamera.style.display = 'block';
+    showCameraError('Tu navegador no soporta acceso directo a la cámara. Usa el botón de abajo para abrir la cámara del sistema.');
+    return;
+  }
+
+  if(location.protocol === 'file:'){
+    cameraModal.classList.add('open');
+    video.style.display = 'none';
+    btnCapture.style.display = 'none';
+    btnFallbackCamera.style.display = 'block';
+    showCameraError('⚠️ Has abierto el archivo con doble clic (file://). Por seguridad, los navegadores bloquean la cámara en este modo.');
+    cameraHint.textContent = '💡 Puedes usar el botón de abajo para abrir la cámara del sistema, o servir la página con "python -m http.server" y abrirla en http://localhost:8000.';
+    cameraHint.style.display = 'block';
+    return;
+  }
+
+  cameraModal.classList.add('open');
+  try {
+    await startCameraStream();
+    if(videoDevices.length > 1){
+      btnSwitchCam.style.display = 'block';
+    }
+  } catch (e) {
+    handleCameraError(e);
+  }
+}
+
+function handleCameraError(e){
+  video.style.display = 'none';
+  btnCapture.style.display = 'none';
+  btnFallbackCamera.style.display = 'block';
+
+  let msg = 'No se pudo acceder a la cámara.';
+  switch(e.name){
+    case 'NotAllowedError':
+    case 'PermissionDeniedError':
+      msg = '🔒 Permiso de cámara DENEGADO.\n\nHaz clic en el icono de la cámara en la barra de direcciones del navegador, permite el acceso y vuelve a intentarlo.';
+      break;
+    case 'NotFoundError':
+    case 'DevicesNotFoundError':
+      msg = '📷 No se encontró ninguna cámara en este dispositivo.';
+      break;
+    case 'NotReadableError':
+    case 'TrackStartError':
+      msg = '⚠️ La cámara está siendo usada por otra aplicación. Ciérrala e inténtalo de nuevo.';
+      break;
+    case 'OverconstrainedError':
+      msg = '⚙️ La cámara no soporta la configuración solicitada.';
+      break;
+    case 'SecurityError':
+    case 'TypeError':
+      msg = '🔒 El navegador bloquea la cámara por seguridad. Necesitas HTTPS o localhost.';
+      break;
+    default:
+      msg = 'Error de cámara: ' + (e.message || e.name || 'desconocido');
+  }
+  showCameraError(msg);
+  cameraHint.textContent = '💡 Usa el botón de abajo para abrir la cámara del sistema, o el botón "Subir" del panel principal para elegir una foto.';
+  cameraHint.style.display = 'block';
+}
+
+async function switchCamera(){
+  const prev = currentFacing;
+  currentFacing = currentFacing === 'environment' ? 'user' : 'environment';
+  try {
+    await startCameraStream();
+  } catch (e) {
+    currentFacing = prev;
+    toast('No se pudo cambiar la cámara', true);
+  }
+}
+
+function closeCamera(){
+  if(stream){ stream.getTracks().forEach(t=>t.stop()); stream = null; }
+  video.srcObject = null;
+  cameraModal.classList.remove('open');
+  clearCameraUI();
+}
+
+function capturePhoto(){
+  const w = video.videoWidth, h = video.videoHeight;
+  if(!w || !h){ toast('Cámara aún no lista, espera un momento', true); return; }
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  c.getContext('2d').drawImage(video, 0, 0);
+  c.toBlob(b => {
+    loadFile(new File([b], 'captura.png', { type:'image/png' }));
+    closeCamera();
+  }, 'image/png');
+}
+
+/* ============================================================
+   GUARDADO
+   ============================================================ */
+async function saveToFolder(){
+  if(!hasImage){ toast('Primero carga una firma'); return; }
+  const blob = await new Promise(r => output.toBlob(r, 'image/png'));
+  const name = `firma_${timestamp()}.png`;
+  if(window.showSaveFilePicker){
+    try{
+      const handle = await window.showSaveFilePicker({
+        suggestedName: name,
+        types: [{ description:'Imagen PNG', accept:{ 'image/png':['.png'] } }]
+      });
+      const writable = await handle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      toast('✅ Firma guardada');
+    }catch(err){
+      if(err.name !== 'AbortError') toast('Error: ' + err.message, true);
+    }
+  }else{
+    downloadBlob(blob, name);
+    toast('Descargada en Descargas');
+  }
+}
+function downloadBlob(blob, name){
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 1500);
+}
+
+/* ============================================================
+   UI
+   ============================================================ */
+function updateModeUI(){
+  const isPhoto = elMode.value === 'photo';
+  document.getElementById('fieldThreshold').style.display   = isPhoto ? 'none' : '';
+  document.getElementById('fieldSensitivity').style.display = isPhoto ? '' : 'none';
+}
+function updateBrushUI(){
+  output.classList.toggle('brushActive', elBrushMode.checked && hasImage);
+  btnErase.classList.toggle('active',   elBrushMode.checked &&  brushErase);
+  btnRestore.classList.toggle('active', elBrushMode.checked && !brushErase);
+  if(!elBrushMode.checked) cursorEl.style.display = 'none';
+}
+const MORPH_LABELS = ['Muy fino','Fino','Normal','Grueso','Muy grueso'];
+function updateMorphLabel(){
+  const v = +elMorphology.value;
+  vMorphology.textContent = MORPH_LABELS[v + 2];
+}
+function resetBrush(){
+  if(!hasImage || !mask || !mask.width) return;
+  const ctx = mask.getContext('2d');
+  ctx.save();
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, mask.width, mask.height);
+  ctx.restore();
+  history = [];
+  updateUndoBtn();
+  compose();
+  toast('Pincel reiniciado');
+}
+function resetAll(){
+  hasImage = false;
+  srcCanvas.width = 0; srcCanvas.height = 0;
+  snapshot.width = 0; snapshot.height = 0;
+  mask = null;
+  maskInitialized = false;
+  history = [];
+  updateUndoBtn();
+  output.width = 0; output.height = 0;
+  output.style.display = 'none';
+  emptyMsg.style.display = 'block';
+  originalCanvas.width = 0; originalCanvas.height = 0;
+  originalCanvas.style.display = 'none';
+  emptyMsgOrig.style.display = 'block';
+  diagnosticEl.style.display = 'none';
+  fileInput.value = '';
+  elBrushMode.checked = false;
+  updateBrushUI();
+  toast('Listo para empezar de nuevo');
+}
+
+/* ============================================================
+   EVENTOS
+   ============================================================ */
+document.getElementById('btnUpload').addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', e => {
+  const f = e.target.files[0];
+  if(f) loadFile(f);
+  fileInput.value = '';
+});
+cameraInput.addEventListener('change', e => {
+  const f = e.target.files[0];
+  if(f) loadFile(f);
+  cameraInput.value = '';
+});
+
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropzone.classList.remove('drag');
+  const f = e.dataTransfer.files[0];
+  if(f) loadFile(f);
+});
+
+document.getElementById('btnCamera').addEventListener('click', openCamera);
+document.getElementById('btnCloseCamera').addEventListener('click', closeCamera);
+document.getElementById('btnCapture').addEventListener('click', capturePhoto);
+btnSwitchCam.addEventListener('click', switchCamera);
+btnFallbackCamera.addEventListener('click', () => {
+  closeCamera();
+  cameraInput.click();
+});
+
+elMode.addEventListener('change', () => { updateModeUI(); scheduleRender(); });
+elThreshold.addEventListener('input', e => { vThreshold.textContent = e.target.value; scheduleRender(); });
+elSensitivity.addEventListener('input', e => { vSensitivity.textContent = e.target.value; scheduleRender(); });
+elSoftness.addEventListener('input', e => { vSoftness.textContent = e.target.value; scheduleRender(); });
+elMorphology.addEventListener('input', () => { updateMorphLabel(); scheduleRender(); });
+elNormalize.addEventListener('change', scheduleRender);
+elColor.addEventListener('input', scheduleRender);
+elInvert.addEventListener('change', scheduleRender);
+elCrop.addEventListener('change', scheduleRender);
+
+document.getElementById('btnAutoTune').addEventListener('click', autoTune);
+document.querySelectorAll('.presets button').forEach(b => {
+  b.addEventListener('click', () => applyPreset(b.dataset.preset));
+});
+
+elBrushMode.addEventListener('change', updateBrushUI);
+elBrushSize.addEventListener('input', e => { vBrushSize.textContent = e.target.value; });
+btnErase.addEventListener('click', () => { brushErase = true; updateBrushUI(); });
+btnRestore.addEventListener('click', () => { brushErase = false; updateBrushUI(); });
+btnUndo.addEventListener('click', undo);
+document.getElementById('btnResetBrush').addEventListener('click', resetBrush);
+
+document.getElementById('btnSavePicker').addEventListener('click', saveToFolder);
+document.getElementById('btnDownload').addEventListener('click', async () => {
+  if(!hasImage){ toast('Primero carga una firma'); return; }
+  const blob = await new Promise(r => output.toBlob(r, 'image/png'));
+  downloadBlob(blob, `firma_${timestamp()}.png`);
+});
+document.getElementById('btnReset').addEventListener('click', resetAll);
+
+window.addEventListener('keydown', (e) => {
+  const tag = (document.activeElement || {}).tagName || '';
+  if(tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA'){
+    if(!(document.activeElement.type === 'range' && (e.key === '[' || e.key === ']'))) return;
+  }
+  if((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z'){
+    e.preventDefault();
+    undo();
+  }else if(e.key === '['){
+    e.preventDefault();
+    elBrushSize.value = Math.max(2, +elBrushSize.value - 5);
+    vBrushSize.textContent = elBrushSize.value;
+  }else if(e.key === ']'){
+    e.preventDefault();
+    elBrushSize.value = Math.min(120, +elBrushSize.value + 5);
+    vBrushSize.textContent = elBrushSize.value;
+  }else if(e.key.toLowerCase() === 'b'){
+    elBrushMode.checked = !elBrushMode.checked;
+    updateBrushUI();
+  }else if(e.key.toLowerCase() === 'e' && elBrushMode.checked){
+    brushErase = true; updateBrushUI();
+  }else if(e.key.toLowerCase() === 'r' && elBrushMode.checked){
+    brushErase = false; updateBrushUI();
+  }
+});
+
+/* Inicial */
+updateModeUI();
+updateBrushUI();
+updateUndoBtn();
+updateMorphLabel();
+</script>
+</body>
+</html>
